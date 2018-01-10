@@ -4,7 +4,7 @@ class Proposta_Model_DbTable_TbSolicitarItem extends MinC_Db_Table_Abstract {
 
     protected  $_banco  = 'sac';
     protected  $_schema = 'sac';
-    protected  $_name   = 'tbsolicitaritem';
+    protected  $_name   = 'tbSolicitarItem';
     protected  $_primary = 'idSolicitarItem';
 
 
@@ -95,10 +95,13 @@ class Proposta_Model_DbTable_TbSolicitarItem extends MinC_Db_Table_Abstract {
                 "et.idPlanilhaEtapa",
                 "et.Descricao as Etapa",
                 "sol.idSolicitarItem",
-                new Zend_Db_Expr("(CASE WHEN  sol.IdPlanilhaItens > 0 THEN it.Descricao ELSE sol.NomeDoItem END) as ItemSolicitado"),
+                new Zend_Db_Expr('(CASE WHEN  "sol"."idPlanilhaItens" > 0 THEN "it"."Descricao" 
+                                    ELSE "sol"."NomeDoItem" END) as ItemSolicitado'),
                 "sol.Descricao as Justificativa",
                 "sol.stEstado",
-                new Zend_Db_Expr( "(CASE sol.stEstado WHEN 0 THEN 'Solicitado' WHEN 1 THEN 'Atendido' ELSE 'Negado' END) as Estado"),
+                new Zend_Db_Expr( '(CASE "sol"."stEstado" WHEN 0 THEN \'Solicitado\' 
+                                    WHEN 1 THEN \'Atendido\' 
+                                    ELSE \'Negado\' END) as Estado'),
                 "Resposta"
             ),
             $this->_schema
@@ -116,7 +119,7 @@ class Proposta_Model_DbTable_TbSolicitarItem extends MinC_Db_Table_Abstract {
         );
 
         $select->joinLeft(
-            array('it' => 'TbPlanilhaItens'), 'sol.idPlanilhaItens = it.idPlanilhaItens',
+            array('it' => 'tbPlanilhaItens'), 'sol.idPlanilhaItens = it.idPlanilhaItens',
             null,
             $this->_schema
         );
@@ -143,7 +146,7 @@ class Proposta_Model_DbTable_TbSolicitarItem extends MinC_Db_Table_Abstract {
             }
             $select->limit($tamanho, $tmpInicio);
         }
-
+//xd($select->assemble());
         return $this->fetchAll($select);
     }
 

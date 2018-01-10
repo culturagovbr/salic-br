@@ -2,10 +2,6 @@
 
 class Proposta_ManterpropostaincentivofiscalController extends Proposta_GenericController
 {
-    /**
-     * @var integer (variï¿½vel com o id do usuï¿½rio logado)
-     * @access private
-     */
     private $idResponsavel = 0;
     private $idAgente = 0;
     private $idUsuario = 0;
@@ -102,13 +98,6 @@ class Proposta_ManterpropostaincentivofiscalController extends Proposta_GenericC
         }
     }
 
-    /**
-     * verificaPermissaoAcessoProposta
-     *
-     * @param mixed $idPreProjeto
-     * @access public
-     * @return void
-     */
     public function verificaPermissaoAcessoProposta($idPreProjeto)
     {
         $tblProposta = new Proposta_Model_DbTable_PreProjeto();
@@ -116,12 +105,6 @@ class Proposta_ManterpropostaincentivofiscalController extends Proposta_GenericC
         return $rs->count();
     }
 
-    /**
-     * indexAction
-     *
-     * @access public
-     * @return void
-     */
     public function indexAction()
     {
         if ($this->idPreProjeto) {
@@ -393,12 +376,10 @@ class Proposta_ManterpropostaincentivofiscalController extends Proposta_GenericC
             }
             return;
         } catch (Zend_Exception $ex) {
-            //$ex->getMessage()
-xd($ex->getMessage());
             if($idPreProjeto) {
                 parent::message("N&atilde;o foi poss&iacute;vel realizar a opera&ccedil;&atilde;o!" . $ex->getMessage(), "/proposta/manterpropostaincentivofiscal/index?idPreProjeto=" . $idPreProjeto, "ERROR");
             } else {
-                parent::message("N&atilde;o foi poss&iacute;vel realizar a opera&ccedil;&atilde;o!", "/proposta/manterpropostaincentivofiscal/listarproposta", "ERROR");
+                parent::message("N&atilde;o foi poss&iacute;vel realizar a opera&ccedil;&atilde;o!" . $ex->getMessage(), "/proposta/manterpropostaincentivofiscal/listarproposta", "ERROR");
             }
         }
     }
@@ -438,101 +419,101 @@ xd($ex->getMessage());
      * @return objeto
      * @deprecated testar proposta e remover em novaIn
      */
-    public function editarAction()
-    {
-        /* ==== VERIFICA PERMISSAO DE ACESSO DO PROPONENTE A PROPOSTA OU AO PROJETO ====== */
-        $this->verificarPermissaoAcesso(true, false, false);
-
-        $idPreProjeto = $this->idPreProjeto;
-
-        $this->redirect("/proposta/manterpropostaincentivofiscal/identificacaodaproposta/idPreProjeto/" . $this->idPreProjeto);
-
-        $this->view->idPreProjeto = $idPreProjeto;
-
-        if (!empty($idPreProjeto)) {
-
-            $arrBusca['idPreProjeto = ?'] = $idPreProjeto;
-
-            $tblPreProjeto = new Proposta_Model_DbTable_PreProjeto();
-            $rsPreProjeto = $tblPreProjeto->buscar($arrBusca)->current();
-
-            if ($rsPreProjeto) {
-                $rsPreProjeto = $rsPreProjeto->toArray();
-                $stProposta = $rsPreProjeto["stProposta"];
-            }
-
-            $arrBuscaProponete['a.idAgente = ?'] = $rsPreProjeto['idAgente'];
-            $tblAgente = new Agente_Model_DbTable_Agentes();
-            $rsProponente = $tblAgente->buscarAgenteENome($arrBuscaProponete)->current();
-            if ($rsProponente) {
-                $rsProponente = ($rsProponente->toArray());
-            }
-
-            $ag = new Agente_Model_DbTable_Agentes();
-            $verificarvinculo = $ag->buscarAgenteVinculoProponente(array('vprp.idPreProjeto = ?' => $idPreProjeto, 'vprp.sivinculoproposta = ?' => 2));
-
-            $verificarvinculoCount = $ag->buscarAgenteVinculoProponente(array('vprp.idPreProjeto = ?' => $idPreProjeto))->count();
-
-            if ($verificarvinculoCount > 0) {
-                $this->view->verificarsolicitacaovinculo = true;
-            } else {
-                $this->view->verificarsolicitacaovinculo = false;
-            }
-
-            // I Love you @
-            if (@$verificarvinculo[0]->sivinculo != 2) {
-                $this->view->siVinculoProponente = true;
-            } else {
-                $this->view->siVinculoProponente = false;
-            }
-
-            $idAgente = $this->idResponsavel;
-
-            $tblVinculo = new Agente_Model_DbTable_TbVinculo();
-
-            $arrBuscaP['vp.idPreProjeto = ?'] = $idPreProjeto;
-            $arrBuscaP['vi.idUsuarioResponsavel = ?'] = $this->idResponsavel;
-            $rsVinculoP = $tblVinculo->buscarVinculoProponenteResponsavel($arrBuscaP);
-
-            $arrBuscaN['vi.sivinculo in (0,2)'] = '';
-            $arrBuscaN['vi.idUsuarioResponsavel = ?'] = $this->idResponsavel;
-            $rsVinculoN = $tblVinculo->buscarVinculoProponenteResponsavel($arrBuscaN);
-            //METODO QUE MONTA TELA DO USUARIO ENVIANDO TODOS OS PARAMENTROS NECESSARIO DENTRO DO ARRAY
-
-
-            $idDocumento = "";
-
-            if (!empty($stProposta)) {
-
-                $tbl = new Proposta_Model_DbTable_TbDocumentosPreProjeto();
-
-                // Plano de execu&ccedil;&atilde;o imediata #novain
-                if ($stProposta == '618') { // proposta execucao imediata edital
-                    $idDocumento = 248;
-                } elseif ($stProposta == '619') { // proposta execucao imediata contrato de patroc&iacute;nio
-                    $idDocumento = 162;
-                }
-                if (!empty($idDocumento))
-                    $arquivoExecucaoImediata = $tbl->buscarDocumentos(array("idprojeto = ?" => $idPreProjeto, "CodigoDocumento = ?" => $idDocumento));
-            }
-
-            $this->montaTela(
-                "manterpropostaincentivofiscal/identificacaodaproposta.phtml",
-                array("acao" => $this->_urlPadrao . "/proposta/manterpropostaincentivofiscal/salvar",
-                    "proposta" => $rsPreProjeto,
-                    "solicitacaovinculo" => $verificarvinculo,
-                    "idResponsavel" => $idAgente,
-                    "dadosVinculo" => $rsVinculoP,
-                    "listaProponentes" => $rsVinculoN,
-                    "idPreProjeto" => $idPreProjeto,
-                    "arquivoExecucaoImediata" => $arquivoExecucaoImediata,
-                    "proponente" => $rsProponente)
-            );
-        } else {
-            //chama o metodo index
-            $this->_forward("index", "manterpropostaincentivofiscal", 'proposta');
-        }
-    }
+//    public function editarAction()
+//    {
+//        /* ==== VERIFICA PERMISSAO DE ACESSO DO PROPONENTE A PROPOSTA OU AO PROJETO ====== */
+//        $this->verificarPermissaoAcesso(true, false, false);
+//
+//        $idPreProjeto = $this->idPreProjeto;
+//
+//        $this->redirect("/proposta/manterpropostaincentivofiscal/identificacaodaproposta/idPreProjeto/" . $this->idPreProjeto);
+//
+//        $this->view->idPreProjeto = $idPreProjeto;
+//
+//        if (!empty($idPreProjeto)) {
+//
+//            $arrBusca['idPreProjeto = ?'] = $idPreProjeto;
+//
+//            $tblPreProjeto = new Proposta_Model_DbTable_PreProjeto();
+//            $rsPreProjeto = $tblPreProjeto->buscar($arrBusca)->current();
+//
+//            if ($rsPreProjeto) {
+//                $rsPreProjeto = $rsPreProjeto->toArray();
+//                $stProposta = $rsPreProjeto["stProposta"];
+//            }
+//
+//            $arrBuscaProponete['a.idAgente = ?'] = $rsPreProjeto['idAgente'];
+//            $tblAgente = new Agente_Model_DbTable_Agentes();
+//            $rsProponente = $tblAgente->buscarAgenteENome($arrBuscaProponete)->current();
+//            if ($rsProponente) {
+//                $rsProponente = ($rsProponente->toArray());
+//            }
+//
+//            $ag = new Agente_Model_DbTable_Agentes();
+//            $verificarvinculo = $ag->buscarAgenteVinculoProponente(array('vprp.idPreProjeto = ?' => $idPreProjeto, 'vprp.sivinculoproposta = ?' => 2));
+//
+//            $verificarvinculoCount = $ag->buscarAgenteVinculoProponente(array('vprp.idPreProjeto = ?' => $idPreProjeto))->count();
+//
+//            if ($verificarvinculoCount > 0) {
+//                $this->view->verificarsolicitacaovinculo = true;
+//            } else {
+//                $this->view->verificarsolicitacaovinculo = false;
+//            }
+//
+//            // I Love you @
+//            if (@$verificarvinculo[0]->sivinculo != 2) {
+//                $this->view->siVinculoProponente = true;
+//            } else {
+//                $this->view->siVinculoProponente = false;
+//            }
+//
+//            $idAgente = $this->idResponsavel;
+//
+//            $tblVinculo = new Agente_Model_DbTable_TbVinculo();
+//
+//            $arrBuscaP['vp.idPreProjeto = ?'] = $idPreProjeto;
+//            $arrBuscaP['vi.idUsuarioResponsavel = ?'] = $this->idResponsavel;
+//            $rsVinculoP = $tblVinculo->buscarVinculoProponenteResponsavel($arrBuscaP);
+//
+//            $arrBuscaN['vi.sivinculo in (0,2)'] = '';
+//            $arrBuscaN['vi.idUsuarioResponsavel = ?'] = $this->idResponsavel;
+//            $rsVinculoN = $tblVinculo->buscarVinculoProponenteResponsavel($arrBuscaN);
+//            //METODO QUE MONTA TELA DO USUARIO ENVIANDO TODOS OS PARAMENTROS NECESSARIO DENTRO DO ARRAY
+//
+//
+//            $idDocumento = "";
+//
+//            if (!empty($stProposta)) {
+//
+//                $tbl = new Proposta_Model_DbTable_TbDocumentosPreProjeto();
+//
+//                // Plano de execu&ccedil;&atilde;o imediata #novain
+//                if ($stProposta == '618') { // proposta execucao imediata edital
+//                    $idDocumento = 248;
+//                } elseif ($stProposta == '619') { // proposta execucao imediata contrato de patroc&iacute;nio
+//                    $idDocumento = 162;
+//                }
+//                if (!empty($idDocumento))
+//                    $arquivoExecucaoImediata = $tbl->buscarDocumentos(array("idprojeto = ?" => $idPreProjeto, "CodigoDocumento = ?" => $idDocumento));
+//            }
+//
+//            $this->montaTela(
+//                "manterpropostaincentivofiscal/identificacaodaproposta.phtml",
+//                array("acao" => $this->_urlPadrao . "/proposta/manterpropostaincentivofiscal/salvar",
+//                    "proposta" => $rsPreProjeto,
+//                    "solicitacaovinculo" => $verificarvinculo,
+//                    "idResponsavel" => $idAgente,
+//                    "dadosVinculo" => $rsVinculoP,
+//                    "listaProponentes" => $rsVinculoN,
+//                    "idPreProjeto" => $idPreProjeto,
+//                    "arquivoExecucaoImediata" => $arquivoExecucaoImediata,
+//                    "proponente" => $rsProponente)
+//            );
+//        } else {
+//            //chama o metodo index
+//            $this->_forward("index", "manterpropostaincentivofiscal", 'proposta');
+//        }
+//    }
 
     public function identificacaodapropostaAction()
     {
@@ -558,18 +539,20 @@ xd($ex->getMessage());
                 $this->montaTela("manterpropostaincentivofiscal/identificacaodaproposta.phtml", array("proponente" => $rsProponente,
                     "acao" => $this->_urlPadrao . "/proposta/manterpropostaincentivofiscal/salvar"));
             }
+
         } else {
 
             $tbl = new Proposta_Model_DbTable_TbDocumentosPreProjeto();
 
-            // Plano de execu&ccedil;&atilde;o imediata #novain
-            if ($this->_proposta["stproposta"] == '618') { // proposta execucao imediata edital
-                $idDocumento = 248;
-            } elseif ($this->_proposta["stproposta"] == '619') { // proposta execucao imediata contrato de patroc&iacute;nio
-                $idDocumento = 162;
+            if ($this->_proposta["stproposta"] == Proposta_Model_Verificacao::PROPOSTA_APROVADA_EM_EDITAIS) {
+                $codigoDocumento = Proposta_Model_DocumentosExigidos::RESULTADO_DA_SELECAO_PUBLICA;
+            } elseif ($this->_proposta["stproposta"] == Proposta_Model_Verificacao::PROPOSTA_COM_CONTRATOS_DE_PATROCINIOS) {
+                $codigoDocumento = Proposta_Model_DocumentosExigidos::CONTRATO_FIRMADO_COM_INCENTIVADOR;
             }
-            if (!empty($idDocumento))
-                $arquivoExecucaoImediata = $tbl->buscarDocumentos(array("idProjeto = ?" => $this->idPreProjeto, "CodigoDocumento = ?" => $idDocumento));
+
+            if (!empty($codigoDocumento)) {
+                $arquivoExecucaoImediata = $tbl->buscarDocumentos(array("idProjeto = ?" => $this->idPreProjeto, "CodigoDocumento = ?" => $codigoDocumento));
+            }
 
             $this->view->arquivoExecucaoImediata = $arquivoExecucaoImediata;
         }
@@ -732,46 +715,77 @@ xd($ex->getMessage());
         $this->verificarPermissaoAcesso(true, false, false);
     }
 
-    /**
-     * enviarPropostaAction
-     *
-     * @access public
-     * @return void
-     * @author wouerner <wouerner@gmail.com>
-     */
     public function enviarPropostaAction()
     {
         $arrResultado = array();
 
         $this->verificarPermissaoAcesso(true, false, false);
-
         $params = $this->getRequest()->getParams();
 
         $idPreProjeto = $this->getRequest()->getParam('idPreProjeto');
 
-        if (!empty($idPreProjeto)) {
+        try {
+
+            if (empty($idPreProjeto)) {
+                throw new Exception("&Eacute; necess&aacute;rio informar o n&uacute;mero da proposta.");
+            }
 
             $tbPreProjeto = new Proposta_Model_DbTable_PreProjeto();
 
             if (!$tbPreProjeto->getAdapter() instanceof Zend_Db_Adapter_Pdo_Mssql) {
+
                 $arrResultado = $this->validarEnvioPropostaSemSp($idPreProjeto);
             } else {
                 $arrResultado = $this->validarEnvioPropostaComSp($idPreProjeto);
             }
 
             if ($params['confirmarenvioaominc'] == true && $arrResultado->Observacao === true) {
-                $proposta = $tbPreProjeto->findBy(array('idPreProjeto' => $idPreProjeto));
 
-                $dados = array(
-                    'idprojeto' => $idPreProjeto,
-                    'movimentacao' => 96,
-                    'dtmovimentacao' => MinC_Db_Expr::date(),
-                    'stestado' => 0,
-                    'usuario' => $proposta['idUsuario']
+                $proposta = $tbPreProjeto->findBy(['idPreProjeto' => $idPreProjeto]);
+
+                $dadosMovimentacaoProposta = array(
+                    'idProjeto' => $idPreProjeto,
+                    'Movimentacao' => 96,
+                    'DtMovimentacao' => MinC_Db_Expr::date(),
+                    'stEstado' => 1,
+                    'Usuario' => $proposta['idUsuario']
                 );
 
+                $tbAvaliacaoProposta = new Admissibilidade_Model_DbTable_TbAvaliacaoProposta();
+                $propostaJaAvaliada = $tbAvaliacaoProposta->findBy(['idProjeto' => $idPreProjeto]);
+
+                if (empty($propostaJaAvaliada)) {
+
+                    $orgaoSuperior = self::obterOrgaoSuperiorPelaAreaAbrangencia($proposta['AreaAbrangencia']);
+                    $tbUsuariosOrgaosGrupos = new Usuariosorgaosgrupos();
+                    $whereTecnicoAdmissibilidade = [
+                        's.sis_codigo = ?' => 21,
+                        'g.gru_codigo = ?' => 92,
+                        'o.org_superior = ?' => $orgaoSuperior,
+                        'ug.uog_status = ?' => 1
+                    ];
+
+                    $tecnicoAdmissiblidade = $tbUsuariosOrgaosGrupos->obterTecnicoComMenosProjetosParaAnaliseMesAtual($whereTecnicoAdmissibilidade);
+
+                    if (empty($tecnicoAdmissiblidade)) {
+                        throw new Exception("Nenhum t&eacute;cnico encontrado, n&atilde;o foi poss&iacute;vel distribuir an&aacute;lise. Proposta não encaminhada!");
+                    }
+
+                    $dadosPropostaParaAvaliacao = [
+                        'idProjeto' => $idPreProjeto,
+                        'idTecnico' => $tecnicoAdmissiblidade->usu_codigo,
+                        'DtEnvio' => MinC_Db_Expr::date(),
+                        'ConformidadeOK' => 9,
+                        'stEstado' => 'f'
+                    ];
+
+                    $tbAvaliacaoProposta->insert($dadosPropostaParaAvaliacao);
+
+                    $dadosMovimentacaoProposta['stEstado'] = 0;
+                }
+
                 $tbMovimentacao = new Proposta_Model_DbTable_TbMovimentacao();
-                $insert = $tbMovimentacao->insert($dados);
+                $insert = $tbMovimentacao->insert($dadosMovimentacaoProposta);
 
                 parent::message("Proposta encaminhada com sucesso para an&aacute;lise no Minist&eacute;rio da Cultura.", "/proposta/manterpropostaincentivofiscal/identificacaodaproposta/idPreProjeto/" . $idPreProjeto, "CONFIRM");
 
@@ -781,9 +795,11 @@ xd($ex->getMessage());
 
             $this->view->acao = $this->_urlPadrao . "/proposta/manterpropostaincentivofiscal/enviar-proposta/idPreProjeto/" . $this->idPreProjeto;
 
-        } else {
-            parent::message("Necess&aacute;rio informar o n&uacute;mero da proposta.", "/proposta/manterpropostaincentivofiscal/listarproposta", "ERROR");
+
+        } catch (Exception $e) {
+            parent::message($e->getMessage(), "/proposta/manterpropostaincentivofiscal/identificacaodaproposta/idPreProjeto/" . $this->idPreProjeto, "ERROR");
         }
+
     }
 
     /**
@@ -826,25 +842,32 @@ xd($ex->getMessage());
 
     }
 
-    /**
-     * validarEnvioPropostaSemSp
-     *
-     * @param mixed $idPreProjeto
-     * @access public
-     * @return void
-     */
     public function validarEnvioPropostaSemSp($idPreProjeto)
     {
         try {
 
             $tbPreProjeto = new Proposta_Model_DbTable_PreProjeto();
-            $arrResultado = $tbPreProjeto->checklistEnvioPropostaSemSp($idPreProjeto);
+            return $tbPreProjeto->checklistEnvioPropostaSemSp($idPreProjeto);
 
-            return $arrResultado;
-
-        } catch (Zend_Exception $ex) {
-            parent::message("N&atilde;o foi poss&iacute;vel realizar a opera&ccedil;&atilde;o! (semsp)" . $ex->getMessage(), "/proposta/manterpropostaincentivofiscal/index?idPreProjeto=" . $idPreProjeto, "ERROR");
+        } catch (Exception $e) {
+            throw $e;
         }
+    }
+
+    private function obterOrgaoSuperiorPelaAreaAbrangencia($areaAbrangencia)
+    {
+        $orgaoSuperior = Orgaos::ORGAO_SUPERIOR_SAV;
+
+        if ($areaAbrangencia == 0) {
+            $orgaoSuperior =  Orgaos::ORGAO_SUPERIOR_SEFIC;
+        }
+
+        return $orgaoSuperior;
+
+    }
+
+    private function obterTecnicoParaAnaliseDaProposta() {
+
     }
 
     public function confirmarEnvioPropostaAoMincAction()

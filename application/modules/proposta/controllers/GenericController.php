@@ -15,6 +15,9 @@ abstract class Proposta_GenericController extends MinC_Controller_Action_Abstrac
     protected $_SGCacesso;
     protected $_cpfLogado;
 
+    const MOVIMENTACAO_PODE_ALTERAR_PROPOSTA = 95;
+    const ALTERAR_PROJETO_DIAS_PARA_ALTERACAO = 10;
+
     public function init()
     {
         parent::init();
@@ -118,7 +121,7 @@ abstract class Proposta_GenericController extends MinC_Controller_Action_Abstrac
 
     public function isEditarProposta($idPreProjeto)
     {
-        if (empty($idPreProjeto)) { 
+        if (empty($idPreProjeto)) {
              return false;
         }
         
@@ -134,6 +137,10 @@ abstract class Proposta_GenericController extends MinC_Controller_Action_Abstrac
 
     public function isEditarProjeto($idPreProjeto)
     {
+        if(empty($idPreProjeto)) {
+            return false;
+        }
+
         $tblProjetos = new Projetos();
         $projeto = $tblProjetos->findBy(array('idProjeto = ?' => $idPreProjeto));
 
@@ -146,6 +153,10 @@ abstract class Proposta_GenericController extends MinC_Controller_Action_Abstrac
 
     public function isEditavel($idPreProjeto)
     {
+        if (empty($idPreProjeto)) {
+            return false;
+        }
+
         if ($this->isEditarProjeto($idPreProjeto) || $this->isEditarProposta($idPreProjeto)) {
             return true;
         }

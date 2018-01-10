@@ -945,4 +945,59 @@ class Agente_Model_DbTable_Agentes extends MinC_Db_Table_Abstract
 
         return $db->fetchAll($objSelect);
     }
+
+    public function obterNomeEnderecoCorrespondenciaAgente($where) {
+
+        $select = $this->select();
+        $select->setIntegrityCheck(false);
+        $select->from(
+            array('a' => $this->_name),
+            array(
+                'a.idAgente',
+                'a.CNPJCPF',
+                'a.Usuario',
+            ),
+            $this->_schema
+        );
+
+        $select->joinLeft(
+            array('n' => 'Nomes'),
+            'n.idAgente = a.idAgente',
+            array(
+                'n.idNome',
+                'n.TipoNome',
+                'n.Descricao as Nome'
+            ),
+            $this->_schema
+        );
+
+        $select->joinLeft(
+            array('e' => 'EnderecoNacional'),
+            'e.idAgente = a.idAgente AND e.Status = \'t\'',
+            array(
+                'e.idEndereco',
+                'e.TipoEndereco',
+                'e.TipoLogradouro',
+                'e.Logradouro',
+                'e.Numero',
+                'e.Bairro',
+                'e.Complemento',
+                'e.Cidade',
+                'e.UF',
+                'e.Cep',
+                'e.Divulgar as DivulgarEndereco',
+                'e.Status as Correspondencia',
+            ),
+            $this->_schema
+        );
+
+        $select->where('n.TipoNome = 18 OR n.TipoNome = ?', 19);
+
+        foreach ($where as $coluna => $valor) {
+            $select->where($coluna, $valor);
+        }
+
+        return $this->fetchRow($select);
+
+    }
 }

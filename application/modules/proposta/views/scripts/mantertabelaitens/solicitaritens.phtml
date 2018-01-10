@@ -10,15 +10,6 @@
 
         <div class="content col s10 m12 l10 planilha-produtos">
 
-            <!-- ========== INICIO BREADCRUMB (LINKS TOPO) ==========
-            <div id="breadcrumb">
-                <ul>
-                    <li class="first"><a href="<?php echo $this->url(array('controller' => 'prototipos', 'action' => 'index')); ?>" title="Ir para In&iacute;cio">In&iacute;cio</a></li>
-                    <li class="second"><a href="<?php echo $this->url(array('controller' => 'prototipos', 'action' => 'propostas')); ?>" title="Ir para Propostas">Propostas</a></li>
-                    <li class="last">Produtos / Etapas / Itens  </li>
-                </ul>
-            </div>-->
-            <!-- ========== FIM BREADCRUMB (LINKS TOPO) ========== -->
 
             <!-- ========== INICIO TITULO ========== -->
 
@@ -28,7 +19,14 @@
             <!-- ========== FIM TITULO ========== -->
 
             <div id="conteudo">
-                <form name="form" id="form" action="<?php echo $this->url(array('module'=>'proposta', 'controller' => 'mantertabelaitens', 'action' => 'solicitaritens')); ?>?idPreProjeto=<?php if(isset($_GET['idPreProjeto']))echo $_GET['idPreProjeto'];?>" method="post">
+
+                <form name="form" id="form" action="<?php echo $this->url(array(
+                                                                                'module'=>'proposta',
+                                                                                'controller' => 'mantertabelaitens',
+                                                                                'action' => 'solicitaritens'
+                                                                                )
+                                                                        ); ?>?idPreProjeto=<?php echo $this->idPreProjeto ?>" method="post">
+
                     <table class="tabela">
                         <tr class="titulo_tabela">
                             <th colspan="4">Novo Produto / Etapa / Item </th>
@@ -90,7 +88,7 @@
                         <tr class="centro">
                             <td colspan="4">
                                 <div id="divMsg" style="display: none;"><font color="red-text">A justificativa deve ser preenchida!</font></div>
-                                <button type="button" class="btn" name="salvar" value="" >salvar</button>
+                                <button id="btn-salvar" type="button" class="btn " name="salvar" value="" >salvar</button>
                             </td>
                         </tr>
                     </table>
@@ -106,7 +104,7 @@
 <script type="text/javascript">
     $(document).ready(function(){
 
-        $('.btn_salvar').click(function(){
+        $('#btn-salvar').click(function(){
             if($('#justificativa').val().length > 250){
                 $("#msgAlerta").dialog("destroy");
                 $("#msgAlerta").html("O campo Justificativa n&atilde;o pode ultrapassar a quantidade de 250 caracteres!");

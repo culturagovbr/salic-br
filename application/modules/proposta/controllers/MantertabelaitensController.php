@@ -88,6 +88,7 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
      */
     public function solicitaritensAction()
     {
+
         $tbproduto = new MantertabelaitensDAO();
         $this->view->produto = $tbproduto->listarProduto();
 
@@ -122,26 +123,25 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
 
                 $dateFunc = MinC_Db_Expr::date();
                 $dadosassociar = array(
-                    'idplanilhaitens' => $idPlanilhaItens,
-                    'nomedoitem' => $nomeItem[0]->NomeDoItem,
+                    'idPlanilhaItens' => $idPlanilhaItens,
+                    'NomeDoItem' => $nomeItem[0]->NomeDoItem,
                     'Descricao' => $justificativa,
-                    'idproduto' => $produto,
-                    'idetapa' => $etapa,
+                    'idProduto' => $produto,
+                    'idEtapa' => $etapa,
                     'idAgente' => $this->idUsuario,
-                    'dtsolicitacao' => new Zend_Db_Expr($dateFunc),
-                    'stestado' => '0'
+                    'DtSolicitacao' => new Zend_Db_Expr($dateFunc),
+                    'stEstado' => '0'
                 );
                 $dadosincluir = array(
-                    'idplanilhaitens' => 0,
-                    'nomedoitem' => $NomeItem,
+                    'idPlanilhaItens' => 0,
+                    'NomeDoItem' => $NomeItem,
                     'Descricao' => $justificativa,
-                    'idproduto' => $produto,
-                    'idetapa' => $etapa,
+                    'idProduto' => $produto,
+                    'idEtapa' => $etapa,
                     'idAgente' => $this->idUsuario,
-                    'dtsolicitacao' => new Zend_Db_Expr($dateFunc),
-                    'stestado' => '0'
+                    'DtSolicitacao' => new Zend_Db_Expr($dateFunc),
+                    'stEstado' => '0'
                 );
-
                 if(!empty($idPlanilhaItens) && $idPlanilhaItens!="0") {
                     $itemNome = $nomeItem[0]->NomeDoItem;
                 }else {
@@ -150,12 +150,14 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
 
 
                 $arrBusca = array();
-                $arrBusca['prod.codigo'] = $produto;
-                $arrBusca['et.idplanilhaetapa'] = $etapa;
+                $arrBusca['prod.Codigo'] = $produto;
+                $arrBusca['et.idPlanilhaEtapa'] = $etapa;
 
                 //$res = MantertabelaitensDAO::buscarSolicitacoes($arrBusca,$itemNome);
                 $res = new MantertabelaitensDAO();
                 $res = $res->listarSolicitacoes($arrBusca,$itemNome);
+
+
                 if(count($res)>0) {
                     throw new Exception("Cadastro duplicado de Produto na mesma etapa envolvendo o mesmo Item, transa&ccedil;&atilde;o cancelada!");
                 }
@@ -203,7 +205,6 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
                     }
                 }
             }catch (Exception $e) {
-
                 parent::message($e->getMessage(), "proposta/mantertabelaitens/solicitaritens?idPreProjeto=".$this->idPreProjeto, "ERROR");
                 return;
             }
@@ -250,7 +251,6 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
             $order = array(2,4,6);
             $ordenacao = null;
         }
-
         $pag = 1;
         $get = Zend_Registry::get('get');
         $this->view->idPreProjeto = $get->idPreProjeto;
@@ -287,6 +287,7 @@ class Proposta_MantertabelaitensController extends Proposta_GenericController {
         }
 
         $tbSolicitarItem = new Proposta_Model_DbTable_TbSolicitarItem();
+//xd(123);
         $total = $tbSolicitarItem->buscarItens($where, $order, null, null, true);
         $fim = $inicio + $this->intTamPag;
 

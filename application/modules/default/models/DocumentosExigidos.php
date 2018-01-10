@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * @todo: duplicado, definir qual arquivo eh o correto (Proposta_Model_DbTable_DocumentosExigidos)
+ */
 class DocumentosExigidos extends MinC_Db_Table_Abstract
 {
 

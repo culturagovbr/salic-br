@@ -11,7 +11,7 @@
  */
 class Inabilitado extends MinC_Db_Table_Abstract {
 
-    protected $_banco = "SAC";
+    protected $_schema = "sac";
     protected $_name = "Inabilitado";
 
     public function salvar($dados)

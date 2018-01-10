@@ -155,7 +155,7 @@ class Proposta_Model_DbTable_PreProjeto extends MinC_Db_Table_Abstract
                 $arrMovimentacao['Movimentacao'] = 95;
                 $arrMovimentacao['DtMovimentacao'] = $date->format('Y-m-d H:i:sP');
                 $arrMovimentacao['stEstado'] = 0;
-                $arrMovimentacao['Usuario'] = $arrData['idusuario'];
+                $arrMovimentacao['Usuario'] = $arrData['idUsuario'];
                 $mprMovimentacao->save(new Proposta_Model_TbMovimentacao($arrMovimentacao));
             }
         }
@@ -2002,341 +2002,340 @@ class Proposta_Model_DbTable_PreProjeto extends MinC_Db_Table_Abstract
         return $this->fetchAll($slct);
     }
 
-    public function checklistEnvioPropostaSemSp($idPreProjeto, $alterarprojeto = false)
+    public function checklistEnvioPropostaSemSp($idPreProjeto, $podeAlterarProjeto = false)
     {
         $validacao = new stdClass();
         $listaValidacao = array();
 
         $db = $this->getAdapter();
         $db->setFetchMode(Zend_Db::FETCH_OBJ);
+        try {
 
+            $proposta = $this->fetchRow(['idPreProjeto = ?' => $idPreProjeto]);
 
-        #verificar se a proposta est&aacute; com o proponente
-        $whereMovimentacao = array(
-            'idProjeto = ?' => $idPreProjeto,
-            'Movimentacao <> ?' => 95,
-            'stEstado = ?' => 0
-        );
+            if(empty($proposta)) {
+                throw new Exception("A proposta cultural n&atilde;o encontrada!");
+            }
 
-        $tbMovimentacao = new Proposta_Model_DbTable_TbMovimentacao();
-        $movimentacao = $tbMovimentacao->buscar($whereMovimentacao, array(), 1)->current();
+            $wherePropostaEnviadaParaAdmissibilidade = array(
+                'idProjeto = ?' => $idPreProjeto,
+                'Movimentacao <> ?' => 95,
+                'stEstado = ?' => 't'
+            );
 
-        if (!empty($movimentacao) && !$alterarprojeto) {
-            $validacao->dsInconsistencia = 'A proposta cultural encontra-se no minist&eacute;rio da cultura';
-            $validacao->Observacao = '';
-            $validacao->Url = '';
-            $listaValidacao[] = clone($validacao);
-        } else {
+            $tbMovimentacao = new Proposta_Model_DbTable_TbMovimentacao();
+            $propostaEnviadaParaAdmissibilidade = $tbMovimentacao->buscar(
+                $wherePropostaEnviadaParaAdmissibilidade,
+                array(),
+                1
+            )->current();
 
-            $sql = $this->select()
-                ->from($this->_name, $this->_getCols(), $this->_schema)
-                ->where('idPreProjeto = ?', $idPreProjeto);
-            $idAgente = $db->fetchRow($sql)->idAgente;
+            if (!empty($propostaEnviadaParaAdmissibilidade) && !$podeAlterarProjeto) {
+                throw new Exception("A proposta cultural encontra-se na fase de admissibilidade");
+            }
 
-            $sql = $this->select()
-                ->from(array('tbavaliacaoproposta'), '*', $this->_schema)
-                ->where('idProjeto = ?', $idPreProjeto);
+            $tbAgentes = new Agente_Model_DbTable_Agentes();
+            $proponente = $tbAgentes->fetchRow(['idAgente = ?' => $proposta->idAgente]);
 
-            $avaliacaoProposta = $db->fetchAll($sql);
-            //if(( date('m') == 13 || date('m') == 1 ) && empty($avaliacaoProposta)) { @todo voltar esta linha, apenas para teste
-            if (getenv('APPLICATION_ENV') == 'production' && empty($avaliacaoProposta)) {
-                $validacao->dsInconsistencia = 'Conforme Art 9&#176; da Instru&ccedil;&atilde;o Normativa n&#176; 1, de 24 de junho de 2013, nenhuma proposta poder&aacute; ser enviada ao MinC nos meses de DEZEMBRO e JANEIRO!';
+            if (!empty($propostaEnviadaParaAdmissibilidade) && !$podeAlterarProjeto) {
+                throw new Exception("Proponente n&atilde;o existe!");
+            }
+
+            $tbAvaliacaoProposta = new Admissibilidade_Model_DbTable_TbAvaliacaoProposta();
+            $propostaJaAvaliada = $tbAvaliacaoProposta->buscar(['idProjeto = ?' => $idPreProjeto])->current();
+
+            //if(( date('m') == 13 || date('m') == 1 ) && empty($propostaJaAvaliada)) { @todo voltar esta linha, apenas para teste
+            if (getenv('APPLICATION_ENV') == 'production' && empty($propostaJaAvaliada)) {
+                throw new Exception("Conforme Art 9&#176; da Instru&ccedil;&atilde;o Normativa n&#176; 1, de 24 de 
+                junho de 2013, nenhuma proposta poder&aacute; ser enviada nos meses de DEZEMBRO e JANEIRO!");
+            }
+
+            $proponenteComEnderecoParaCorrespondencia = $tbAgentes->obterNomeEnderecoCorrespondenciaAgente(
+                ['a.idAgente = ?' => $proponente->idAgente]
+            );
+
+            if (empty($proponenteComEnderecoParaCorrespondencia)) {
+                $validacao->dsInconsistencia = 'Dados cadastrais do proponente inexistente ou n&atilde;o h&aacute; 
+                endere&ccedil;o para correspondência selecionado.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array(
+                    'module' => 'agente',
+                    'controller' => 'agentes',
+                    'action' => 'agentes',
+                    'id' => $proponente->idAgente
+                );
+                $listaValidacao[] = clone($validacao);
+            }
+
+            $tbInabilitado = new Inabilitado();
+            $regularidadeProponente = $tbInabilitado->fetchRow(
+                [
+                    'CgcCpf = ?' => $proponente->CNPJCPF,
+                    'Habilitado = ?' => 'N'
+                ]
+            );
+
+            if (!empty($regularidadeProponente)) {
+                $validacao->dsInconsistencia = 'Proponente em situa&ccedil;&atilde;o IRREGULAR!';
                 $validacao->Observacao = 'PENDENTE';
                 $validacao->Url = '';
                 $listaValidacao[] = clone($validacao);
-            } else {
-                $sql = $this->select()
-                    ->from(array('v' => 'vcadastrarproponente'), 'v.*', $this->_schema)
-                    ->join(array('p' => 'PreProjeto'), 'v.idAgente = p.idAgente', null, $this->_schema)
-                    ->where('idpreprojeto = ?', $idPreProjeto)
-                    ->where('Correspondencia = 1')
-                    ->limit(1);
-                $vCadastrarProponente = $db->fetchAll($sql);
+            }
 
-                //VERIFICAR AS INFORMACOES DO PROPONENTE
-                if (empty($vCadastrarProponente)) {
-                    $validacao->dsInconsistencia = 'Dados cadastrais do proponente inexistente ou n&atilde;o h&aacute; endere&ccedil;o para correspondência selecionado.';
+
+            $tbInternet = new Agente_Model_DbTable_Internet();
+            $emails = $tbInternet->fetchRow(['idAgente = ?' => $proponente->idAgente, 'Status = ?' => 't']);
+
+            if (empty($emails)) {
+                $validacao->dsInconsistencia = 'E-mail do proponente inexistente';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'agente', 'controller' => 'agentes', 'action' => 'agentes', 'id' => $proponente->idAgente);
+                $listaValidacao[] = clone($validacao);
+            }
+
+
+
+            //-- NO CASO DE PESSOA FISICA, VERIFICAR O LANCAMENTO DA DATA DE NASCIMENTO
+
+            if ($proponente->TipoPessoa == 0) {
+
+                $sql = $this->select()
+                    ->from(array('tbAgenteFisico'), 'dtNascimento', $this->getSchema('agentes'))
+                    ->where('idAgente = ?', $proponente->idAgente);
+
+                $dataNasc = $db->fetchOne($sql);
+
+                if (empty($dataNasc)) {
+                    $validacao->dsInconsistencia = 'Data de nascimento inexistente.';
                     $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'agente', 'controller' => 'agentes', 'action' => 'agentes', 'id' => $idAgente);
+                    $validacao->Url = array('module' => 'agente', 'controller' => 'agentes', 'action' => 'info-adicionais', 'id' => $proponente->idAgente);
                     $listaValidacao[] = clone($validacao);
                 }
+            }
 
-                //VERIFICAR A REGULARIDADE DO PROPONENTE
-                $sql = $this->select()
-                    ->from(array('v' => 'vcadastrarproponente'), 'v.*', $this->_schema)
-                    ->join(array('p' => 'PreProjeto'), 'v.idAgente = p.idAgente', null, $this->_schema)
-                    ->join(array('i' => 'inabilitado'), 'v.CnpjCpf=i.CgcCpf', null, $this->_schema)
-                    ->where('idpreprojeto = ?', $idPreProjeto)
-                    ->where('v.CnpjCpf=i.CgcCpf')
-                    ->where("Habilitado='N'")
+            //-- NO CASO DE PESSOA JURIDICA, VERIFICAR O LANCAMENTO DA NATUREZA DO PROPONENTE
+            if ($proponente->TipoPessoa  == 1) {
+
+                $sqlNatureza = $this->select()
+                    ->from(array('n' => 'Natureza'), '*', $this->getSchema('agentes'))
+                    ->where('idAgente = ?', $proponente->idAgente)
                     ->limit(1);
 
-                $regularidadeProponente = $db->fetchAll($sql);
-                if (!empty($regularidadeProponente)) {
-                    $validacao->dsInconsistencia = 'Proponente em situa&ccedil;&atilde;o IRREGULAR no Minist&eacute;rio da Cultura.';
+                $natureza = $db->fetchAll($sqlNatureza);
+
+                if (empty($natureza)) {
+                    $validacao->dsInconsistencia = 'Natureza do proponente.';
                     $validacao->Observacao = 'PENDENTE';
                     $validacao->Url = '';
                     $listaValidacao[] = clone($validacao);
                 }
 
-                //-- VERIFICAR SE HA OS EMAILS DO PROPONENTE CADASTRADOS
+                //-- VERIFICAR SE HA DIRIGENTE CADASTRADO
                 $sql = $this->select()
-                    ->from(array('v' => 'internet'), 'v.*', $this->getSchema('agentes'))
-                    ->join(array('p' => 'PreProjeto'), 'v.idAgente=p.idAgente', null, $this->_schema)
-                    ->where('idpreprojeto= ?', $idPreProjeto)
-                    ->where('Status=1')
-                    ->limit(1);
-                $verificarEmail = $db->fetchAll($sql);
-                if (empty($verificarEmail)) {
-                    $validacao->dsInconsistencia = 'E-mail do proponente inexistente';
+                    ->from(array('v' => 'vCadastrardirigente'), '*', $this->_schema)
+                    ->join(array('p' => 'PreProjeto'), 'v.idVinculoPrincipal=p.idAgente', '*', $this->_schema)
+                    ->where('idPreProjeto= ?', $idPreProjeto);
+
+                $dirigenteCadastrado = $db->fetchAll($sql);
+                if (empty($dirigenteCadastrado)) {
+                    $validacao->dsInconsistencia = 'Cadastro de Dirigente.';
                     $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'agente', 'controller' => 'agentes', 'action' => 'agentes', 'id' => $idAgente);
+                    $validacao->Url = '';
                     $listaValidacao[] = clone($validacao);
                 }
+            }
 
-                //-- NO CASO DE PESSOA FISICA, VERIFICAR O LANCAMENTO DA DATA DE NASCIMENTO
-                $sql = $this->select()
-                    ->from(array('v' => 'agentes'), 'tipopessoa', $this->getSchema('agentes'))
-                    ->where('idAgente = ?', $idAgente);
-                $resultPessoa = $db->fetchAll($sql);
-                if (count($resultPessoa) > 0) {
-                    $tipoPessoa = $resultPessoa[0]->TipoPessoa;
-                }
-                if ($tipoPessoa == 0) {
+            // Verifica se o proponente Proposta aprovado em editais (618) ou Proposta  com contratos de patroc&iacute;nios (619)
+            $sql = $this->select()
+                ->from($this->_name, $this->_getCols(), $this->_schema)
+                ->where('idPreProjeto = ?', $idPreProjeto);
+            $stProposta = $db->fetchRow($sql)->stProposta;
 
-                    $sql = $this->select()
-                        ->from(array('tbagentefisico'), 'dtnascimento', $this->getSchema('agentes'))
-                        ->where('idagente = ?', $idAgente);
+            $idDocumento = '';
+            if ($stProposta == '618') {
+                $msg = 'No caso de proposta aprovada em editais &eacute; obrigat&oacute;rio anexar o documento Resultado da Sele&ccedil;&atilde;o p&uacute;blica';
+                $idDocumento = 248;
+            } elseif ($stProposta == '619') {
+                $msg = 'No caso de proposta com contratos de patroc&iacute;nios &eacute; obrigat&oacute;rio anexar o Contrato firmado com o Incentivador';
+                $idDocumento = 162;
+            }
 
-                    $dataNasc = $db->fetchAll($sql);
-
-                    if (empty($dataNasc)) {
-                        $validacao->dsInconsistencia = 'Data de nascimento inexistente.';
-                        $validacao->Observacao = 'PENDENTE';
-                        $validacao->Url = array('module' => 'agente', 'controller' => 'agentes', 'action' => 'info-adicionais', 'id' => $idAgente);
-                        $listaValidacao[] = clone($validacao);
-                    }
-                }
-
-                //-- NO CASO DE PESSOA JURIDICA, VERIFICAR O LANCAMENTO DA NATUREZA DO PROPONENTE
-                if ($tipoPessoa == 1) {
-                    $sql = $this->select()
-                        ->from(array('n' => 'natureza'), '*', $this->getSchema('agentes'))
-                        ->join(array('p' => 'PreProjeto'), 'n.idAgente=p.idAgente', '*', $this->_schema)
-                        ->where('idpreprojeto = ?', $idPreProjeto)
-                        ->limit(1);
-
-                    $natureza = $db->fetchAll($sql);
-                    if (empty($natureza)) {
-                        $validacao->dsInconsistencia = 'Natureza do proponente.';
-                        $validacao->Observacao = 'PENDENTE';
-                        $validacao->Url = '';
-                        $listaValidacao[] = clone($validacao);
-                    }
-
-                    //-- VERIFICAR SE HA DIRIGENTE CADASTRADO
-                    $sql = $this->select()
-                        ->from(array('v' => 'vcadastrardirigente'), '*', $this->_schema)
-                        ->join(array('p' => 'PreProjeto'), 'v.idVinculoPrincipal=p.idAgente', '*', $this->_schema)
-                        ->where('idPreProjeto= ?', $idPreProjeto);
-
-                    $dirigenteCadastrado = $db->fetchAll($sql);
-                    if (empty($dirigenteCadastrado)) {
-                        $validacao->dsInconsistencia = 'Cadastro de Dirigente.';
-                        $validacao->Observacao = 'PENDENTE';
-                        $validacao->Url = '';
-                        $listaValidacao[] = clone($validacao);
-                    }
-                }
-
-                // Verifica se o proponente Proposta aprovado em editais (618) ou Proposta  com contratos de patroc&iacute;nios (619)
-                $sql = $this->select()
-                    ->from($this->_name, $this->_getCols(), $this->_schema)
-                    ->where('idPreProjeto = ?', $idPreProjeto);
-                $stProposta = $db->fetchRow($sql)->stProposta;
-
-                $idDocumento = '';
-                if ($stProposta == '618') {
-                    $msg = 'No caso de proposta aprovada em editais &eacute; obrigat&oacute;rio anexar o documento Resultado da Sele&ccedil;&atilde;o p&uacute;blica';
-                    $idDocumento = 248;
-                } elseif ($stProposta == '619') {
-                    $msg = 'No caso de proposta com contratos de patroc&iacute;nios &eacute; obrigat&oacute;rio anexar o Contrato firmado com o Incentivador';
-                    $idDocumento = 162;
-                }
-
-                if (!empty($idDocumento)) {
-
-                    $sql = $this->select()
-                        ->from(array('tbDocumentosPreProjeto'), '*', $this->_schema)
-                        ->where('idProjeto = ?', $idPreProjeto)
-                        ->where('CodigoDocumento = ?', $idDocumento)
-                        ->limit(1);
-                    $documento = $db->fetchRow($sql);
-
-                    if (empty($documento)) {
-                        $validacao->dsInconsistencia = $msg;
-                        $validacao->Observacao = 'PENDENTE';
-                        $validacao->Url = array('module' => 'proposta', 'controller' => 'manterpropostaincentivofiscal', 'action' => 'identificacaodaproposta', 'idPreProjeto' => $idPreProjeto);
-                        $listaValidacao[] = clone($validacao);
-                    }
-                }
-
-                //-- VERIFICAR SE O LOCAL DE REALIZACAO ESTA CADASTRADO
-                //IF NOT EXISTS(SELECT TOP 1 * FROM Abrangencia WHERE idProjeto = @idProjeto)
+            if (!empty($idDocumento)) {
 
                 $sql = $this->select()
-                    ->from(array('abrangencia'), '*', $this->_schema)
+                    ->from(array('tbDocumentosPreProjeto'), '*', $this->_schema)
                     ->where('idProjeto = ?', $idPreProjeto)
+                    ->where('CodigoDocumento = ?', $idDocumento)
                     ->limit(1);
+                $documento = $db->fetchRow($sql);
 
-                $local = $db->fetchAll($sql);
-
-                if (empty($local)) {
-                    $validacao->dsInconsistencia = 'O Local de realiza&ccedil;&atilde;o da proposta n&atilde;o foi preenchido.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'localderealizacao', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                }
-
-                //-- VERIFICAR SE EXISTE NO MINIMO 90 DIAS ENTRE A DATA DE ENVIO E O INICIO DO PERIODO DE EXECUCAO DO PROJETO
-                $sql = $this->select()
-                    ->from($this->_name, array('*'), $this->_schema)
-                    ->where('idPreProjeto = ?', $idPreProjeto)
-                    ->limit(1);
-
-                if ($this->getAdapter() instanceof Zend_Db_Adapter_Pdo_Mssql) {
-                    $sql->where('DATEDIFF(DAY,' . $this->getDate() . ',DtInicioDeExecucao) < 90');
-                } else {
-                    $sql->where("DATE_PART('day', dtiniciodeexecucao - now()) < 90");
-                }
-                $minimo90 = $db->fetchAll($sql);
-
-
-                if (!empty($minimo90)) {
-                    $validacao->dsInconsistencia = 'A diferen&ccedil;a em dias entre a data de envio do projeto ao MinC e a data de in&iacute;cio de execu&ccedil;&atilde;o do projeto est&aacute; menor do que 90 dias.';
+                if (empty($documento)) {
+                    $validacao->dsInconsistencia = $msg;
                     $validacao->Observacao = 'PENDENTE';
                     $validacao->Url = array('module' => 'proposta', 'controller' => 'manterpropostaincentivofiscal', 'action' => 'identificacaodaproposta', 'idPreProjeto' => $idPreProjeto);
                     $listaValidacao[] = clone($validacao);
                 }
-
-                //-- VERIFICAR SE O PLANO DE DISTRIBUICAO DO PRODUTO ESTA PREENCHIDO
-                $sql = $this->select()
-                    ->from(array('planodistribuicaoproduto'), '*', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->limit(1);
-
-                $planoDistribuicao = $db->fetchAll($sql);
-                if (empty($planoDistribuicao)) {
-                    $validacao->dsInconsistencia = 'O Plano Distribui&ccedil;&atilde;o de Produto n&atilde;o foi preenchido.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                }
-
-                //--Verificar a existencia do produto principal
-                //SELECT @QtdeOutros=stPrincipal FROM PlanoDistribuicaoProduto  WHERE idProjeto = @idProjeto and stPrincipal = 1
-                $sql = $this->select()
-                    ->from(array('planodistribuicaoproduto'), 'stprincipal', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where('stprincipal = 1');
-
-                $quantidade = count($db->fetchAll($sql));
-
-                if ($quantidade = 0) {
-                    $validacao->dsInconsistencia = 'N&atilde;o h&aacute; produto principal selecionado na proposta.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                } else if ($quantidade > 1) {
-                    $validacao->dsInconsistencia = 'Só poder&aacute; haver um produto principal em cada proposta, a sua est&aacute; com mais de um produto.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                }
-
-                //-- VERIFICAR SE EXISTE NA PLANILHA ORCAMENTARIA ITENS DA FONTE INCENTIVO FISCAL FEDERAL.
-                $sql = $this->select()
-                    ->from(array('tbplanilhaproposta'), '*', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where('FonteRecurso = 109')
-                    ->limit(1);
-
-                $planilhaOrcamentaria = $db->fetchAll($sql);
-
-                if (empty($planilhaOrcamentaria)) {
-                    $validacao->dsInconsistencia = 'N&atilde;o existe item or&ccedil;ament&aacute;rio referente a fonte de recurso - Incentivo Fiscal Federal.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'manterorcamento', 'action' => 'produtoscadastrados', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                }
-
-                //-- VERIFICAR SE EXISTE NA PLANILHA ORCAMENTARIA PARA CADA PRODUTO DESCRITO NO PLANO DE DISTRIBUICAO DO PRODUTO
-                //IF EXISTS(SELECT * FROM PlanoDistribuicaoProduto pp WHERE idProjeto = @idProjeto and
-                //NOT EXISTS(SELECT * FROM tbPlanilhaProposta pl WHERE idProjeto = @idProjeto and pp.idProduto=pl.idProduto and idProduto <> 0))
-                $subSql = $this->select()
-                    ->from(array('pl' => 'tbplanilhaproposta'), '*', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where('pp.idProduto=pl.idProduto')
-                    ->where('idProduto <> 0');
-
-                $sql = $this->select()
-                    ->from(array('pp' => 'planodistribuicaoproduto'), '*', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where(new Zend_Db_Expr("NOT EXISTS($subSql)"));
-
-                $planilhaProduto = $db->fetchAll($sql);
-
-                if (!empty($planilhaProduto)) {
-                    $validacao->dsInconsistencia = 'Existe produto cadastrado sem a respectiva planilha orcament&aacute;ria cadastrada.';
-                    $validacao->Observacao = 'PENDENTE';
-                    $validacao->Url = array('module' => 'proposta', 'controller' => 'manterorcamento', 'action' => 'produtoscadastrados', 'idPreProjeto' => $idPreProjeto);
-                    $listaValidacao[] = clone($validacao);
-                }
-
-                //-- VERIFICAR O PERCENTUAL DA REMUNERACAO PARA CAPTACAO DE RECURSOS
-                $sql = $this->select()
-                    ->from(array('tbplanilhaproposta'), 'SUM(Quantidade * Ocorrencia * ValorUnitario) as total', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where('FonteRecurso = 109')
-                    ->where('idPlanilhaItem <> 5249');
-
-                $total = $db->fetchAll($sql);
-                $total = empty($total[0]->total) ? 0 : $total[0]->total;
-
-                //--pega o valor de remuneracao para captacao
-                $sql = $this->select()
-                    ->from(array('tbplanilhaproposta'), 'SUM(Quantidade * Ocorrencia * ValorUnitario) as total', $this->_schema)
-                    ->where('idProjeto =  ?', $idPreProjeto)
-                    ->where('FonteRecurso = 109')
-                    ->where('idPlanilhaItem = 5249');
-
-                $custoAdm = $db->fetchAll($sql);
-                $custoAdm = empty($custoAdm[0]->total) ? 0 : $custoAdm[0]->total;
             }
-        }
 
-        $validado = true;
-        foreach ($listaValidacao as $valido) {
-            if ($valido->Observacao == 'PENDENTE') {
-                $validado = false;
-                break;
+            //-- VERIFICAR SE O LOCAL DE REALIZACAO ESTA CADASTRADO
+            //IF NOT EXISTS(SELECT TOP 1 * FROM Abrangencia WHERE idProjeto = @idProjeto)
+            $sql = $this->select()
+                ->from(array('Abrangencia'), '*', $this->_schema)
+                ->where('idProjeto = ?', $idPreProjeto)
+                ->limit(1);
+
+            $local = $db->fetchAll($sql);
+
+            if (empty($local)) {
+                $validacao->dsInconsistencia = 'O Local de realiza&ccedil;&atilde;o da proposta n&atilde;o foi preenchido.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'localderealizacao', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
             }
+
+            //-- VERIFICAR SE EXISTE NO MINIMO 90 DIAS ENTRE A DATA DE ENVIO E O INICIO DO PERIODO DE EXECUCAO DO PROJETO
+            $sql = $this->select()
+                ->from($this->_name, array('*'), $this->_schema)
+                ->where('idPreProjeto = ?', $idPreProjeto)
+                ->limit(1);
+
+            if ($this->getAdapter() instanceof Zend_Db_Adapter_Pdo_Mssql) {
+                $sql->where('DATEDIFF(DAY,' . $this->getDate() . ',DtInicioDeExecucao) < 90');
+            } else {
+                $sql->where('DATE_PART(\'day\', "DtInicioDeExecucao" - now()) < 90');
+            }
+            $minimo90 = $db->fetchAll($sql);
+
+
+            if (!empty($minimo90)) {
+                $validacao->dsInconsistencia = 'A diferen&ccedil;a em dias entre a data de envio do projeto ao MinC e a data de in&iacute;cio de execu&ccedil;&atilde;o do projeto est&aacute; menor do que 90 dias.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'manterpropostaincentivofiscal', 'action' => 'identificacaodaproposta', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            }
+
+            //-- VERIFICAR SE O PLANO DE DISTRIBUICAO DO PRODUTO ESTA PREENCHIDO
+            $sql = $this->select()
+                ->from(array('PlanoDistribuicaoProduto'), '*', $this->_schema)
+                ->where('idProjeto =  ?', $idPreProjeto)
+                ->limit(1);
+
+            $planoDistribuicao = $db->fetchAll($sql);
+            if (empty($planoDistribuicao)) {
+                $validacao->dsInconsistencia = 'O Plano Distribui&ccedil;&atilde;o de Produto n&atilde;o foi preenchido.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            }
+
+            //--Verificar a existencia do produto principal
+            //SELECT @QtdeOutros=stPrincipal FROM PlanoDistribuicaoProduto  WHERE idProjeto = @idProjeto and stPrincipal = 1
+            $sql = $this->select()
+                ->from(array('PlanoDistribuicaoProduto'), 'stPrincipal', $this->_schema)
+                ->where('idProjeto =  ?', $idPreProjeto)
+                ->where('stPrincipal = ?', 't');
+
+            $quantidade = count($db->fetchAll($sql));
+
+            if ($quantidade = 0) {
+                $validacao->dsInconsistencia = 'N&atilde;o h&aacute; produto principal selecionado na proposta.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            } else if ($quantidade > 1) {
+                $validacao->dsInconsistencia = 'Só poder&aacute; haver um produto principal em cada proposta, a sua est&aacute; com mais de um produto.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'plano-distribuicao', 'action' => 'index', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            }
+
+            //-- VERIFICAR SE EXISTE NA PLANILHA ORCAMENTARIA ITENS DA FONTE INCENTIVO FISCAL FEDERAL.
+            $sql = $this->select()
+                ->from(array('tbPlanilhaProposta'), '*', $this->_schema)
+                ->where('idProjeto =  ?', $idPreProjeto)
+                ->where('FonteRecurso = ?', 109)
+                ->limit(1);
+
+            $planilhaOrcamentaria = $db->fetchAll($sql);
+
+            if (empty($planilhaOrcamentaria)) {
+                $validacao->dsInconsistencia = 'N&atilde;o existe item or&ccedil;ament&aacute;rio referente a fonte de recurso - Incentivo Fiscal Federal.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'manterorcamento', 'action' => 'produtoscadastrados', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            }
+
+            //-- VERIFICAR SE EXISTE NA PLANILHA ORCAMENTARIA PARA CADA PRODUTO DESCRITO NO PLANO DE DISTRIBUICAO DO PRODUTO
+            //IF EXISTS(SELECT * FROM PlanoDistribuicaoProduto pp WHERE idProjeto = @idProjeto and
+            //NOT EXISTS(SELECT * FROM tbPlanilhaProposta pl WHERE idProjeto = @idProjeto and pp.idProduto=pl.idProduto and idProduto <> 0))
+            $subSql = $this->select()
+                ->from(array('pl' => 'tbPlanilhaProposta'), 'pl.idProduto', $this->_schema)
+                ->where('pl.idProjeto = ?', $idPreProjeto);
+
+            $sql = $this->select()
+                ->from(array('pp' => 'PlanoDistribuicaoProduto'), '*', $this->_schema)
+                ->where('pp.idProjeto = ?', $idPreProjeto)
+                ->where(new Zend_Db_Expr('"pp"."idProduto" NOT IN(' . $subSql .')'));
+
+            $planilhaProduto = $db->fetchAll($sql);
+
+            if (!empty($planilhaProduto)) {
+                $validacao->dsInconsistencia = 'Existe produto cadastrado sem a respectiva planilha orcament&aacute;ria cadastrada.';
+                $validacao->Observacao = 'PENDENTE';
+                $validacao->Url = array('module' => 'proposta', 'controller' => 'manterorcamento', 'action' => 'produtoscadastrados', 'idPreProjeto' => $idPreProjeto);
+                $listaValidacao[] = clone($validacao);
+            }
+
+            //-- VERIFICAR O PERCENTUAL DA REMUNERACAO PARA CAPTACAO DE RECURSOS
+//            $sql = $this->select()
+//                ->from(
+//                    array('tbPlanilhaProposta'),
+//                    'SUM("Quantidade" * "Ocorrencia" * "ValorUnitario") as total',
+//                    $this->_schema
+//                )
+//                ->where('idProjeto =  ?', $idPreProjeto)
+//                ->where('FonteRecurso = ?', 109)
+//                ->where('idPlanilhaItem <> ? ', 5249);
+//
+//            $total = $db->fetchAll($sql);
+//            $total = empty($total[0]->total) ? 0 : $total[0]->total;
+
+            //--pega o valor de remuneracao para captacao
+//            $sql = $this->select()
+//                ->from(array('tbPlanilhaProposta'), 'SUM("Quantidade" * "Ocorrencia" * "ValorUnitario") as total', $this->_schema)
+//                ->where('idProjeto =  ?', $idPreProjeto)
+//                ->where('FonteRecurso = ?', 109)
+//                ->where('idPlanilhaItem <> ? ', 5249);
+//
+//            $custoAdm = $db->fetchAll($sql);
+//            $custoAdm = empty($custoAdm[0]->total) ? 0 : $custoAdm[0]->total;
+
+            $validado = true;
+            foreach ($listaValidacao as $valido) {
+                if ($valido->Observacao == 'PENDENTE') {
+                    $validado = false;
+                    break;
+                }
+            }
+
+            if ($validado) {
+                $validacao->dsInconsistencia = 'A proposta cultural n&atilde;o possui pend&ecirc;ncias';
+                $validacao->Observacao = true;
+                $validacao->Url = '';
+                return $validacao;
+
+            } else {
+                $validacao->dsInconsistencia = '<font color=red><b> A PROPOSTA CULTURAL N&Atilde;O FOI ENVIADA AO MINIST&Eacute;RIO DA CULTURA DEVIDO &Agrave;S PEND&Ecirc;NCIAS ASSINALADAS ACIMA.</b></font>';
+                $validacao->Observacao = '';
+                $validacao->Url = '';
+                $listaValidacao[] = clone($validacao);
+            }
+
+
+            return $listaValidacao;
+        } catch (Exception $e) {
+            throw $e;
         }
-
-        if ($validado) {
-            $validacao->dsInconsistencia = 'A proposta cultural n&atilde;o possui pend&ecirc;ncias';
-            $validacao->Observacao = true;
-            $validacao->Url = '';
-            return $validacao;
-
-        } else {
-            $validacao->dsInconsistencia = '<font color=red><b> A PROPOSTA CULTURAL N&Atilde;O FOI ENVIADA AO MINIST&Eacute;RIO DA CULTURA DEVIDO &Agrave;S PEND&Ecirc;NCIAS ASSINALADAS ACIMA.</b></font>';
-            $validacao->Observacao = '';
-            $validacao->Url = '';
-            $listaValidacao[] = clone($validacao);
-        }
-
-        return $listaValidacao;
     }
 
     public function listarProdutos($idPreProjeto)
@@ -2376,45 +2375,19 @@ class Proposta_Model_DbTable_PreProjeto extends MinC_Db_Table_Abstract
         return $db->fetchAll($sql);
     }
 
-    public function listarEtapasProdutos($idPreProjeto)
-    {
-        $db = Zend_Db_Table::getDefaultAdapter();
-        $db->setFetchMode(Zend_Db::FETCH_OBJ);
-
-        //$sql = $this->select()
-        //->from(['pre' => 'PreProjeto'], 'pre.idPreProjeto as idPreProjeto', $this->getSchema('sac'))
-        //->join(['pp' => 'tbplanilhaproposta'], '(pre.idPreProjeto = pp.idProjeto)', ['pp.idproduto as idProduto', 'pp.idetapa as idEtapa'], $this->getSchema('sac'))
-        //->join(['p' => 'produto'], '(pp.idproduto = p.codigo)', 'p.codigo as CodigoProduto', $this->getSchema('sac'))
-        //->join(['te' => 'tbplanilhaetapa'], 'te.idplanilhaetapa = pp.idetapa', 'te.Descricao as DescricaoEtapa', $this->getSchema('sac'))
-        //->where('idpreprojeto = ?', $idPreProjeto)
-        //->order('te.DescricaoEtapa')
-        //;
-
-        //$sql = "SELECT
-        //distinct
-        //p.Codigo as CodigoProduto,
-        //pp.idProduto as idProduto,
-        //pp.idEtapa as idEtapa,
-        //te.Descricao as DescricaoEtapa,
-        //pre.idPreProjeto as idPreProjeto
-        //FROM sac.PreProjeto pre
-        //INNER JOIN sac.tbPlanilhaProposta pp ON (pre.idPreProjeto = pp.idProjeto)
-        //INNER JOIN sac.Produto p ON (pp.idProduto = p.Codigo)
-        //INNER JOIN sac..tbPlanilhaEtapa te on te.idPlanilhaEtapa = pp.idEtapa
-        //WHERE idPreProjeto = {$idPreProjeto}";
-
-        //$sql.= " ORDER BY te.DescricaoEtapa ";
-
-        $sql = $this->select()
-            ->from(array('tbplanilhaetapa'), array('idplanilhaetapa as idEtapa', 'descricao as DescricaoEtapa'), $this->getSchema('sac'))
-            ->where("tpCusto = 'P'");
-
-        //$sql = " SELECT idPlanilhaEtapa as idEtapa, Descricao as DescricaoEtapa FROM sac.tbPlanilhaEtapa WHERE tpCusto = 'P' ";
-
-        throw new Exception('M&eacute;todo transferido para Proposta_Model_DbTable_TbPlanilhaEtapa');
-
-        return $db->fetchAll($sql);
-    }
+//    public function listarEtapasProdutos($idPreProjeto)
+//    {
+//        $db = Zend_Db_Table::getDefaultAdapter();
+//        $db->setFetchMode(Zend_Db::FETCH_OBJ);
+//
+//        $sql = $this->select()
+//            ->from(array('tbplanilhaetapa'), array('idplanilhaetapa as idEtapa', 'descricao as DescricaoEtapa'), $this->getSchema('sac'))
+//            ->where("tpCusto = 'P'");
+//
+//        throw new Exception('M&eacute;todo transferido para Proposta_Model_DbTable_TbPlanilhaEtapa');
+//
+//        return $db->fetchAll($sql);
+//    }
 
     //@todo lugar certo &eacute; tbPlanilhaProposta, remover do ManterOrcamentoDAO tbm
     public function listarItensProdutos($idPreProjeto, $idItem = null, $fetchMode = Zend_Db::FETCH_OBJ)

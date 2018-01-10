@@ -1,68 +1,79 @@
+<div class="container-fluid">
 
-<!-- ========== INICIO BREADCRUMB (LINKS TOPO) ==========
-<div id="breadcrumb">
-    <ul>
-        <li class="first"><a href="<?php echo $this->url(array('controller' => 'prototipos', 'action' => 'index')); ?>" title="Ir para In&iacute;cio">In&iacute;cio</a></li>
-        <li class="second"><a href="<?php echo $this->url(array('controller' => 'prototipos', 'action' => 'propostas')); ?>" title="Ir para Propostas">Propostas</a></li>
-        <li class="last">Produtos / Etapas / Itens  </li>
-    </ul>
-</div>-->
-<!-- ========== FIM BREADCRUMB (LINKS TOPO) ========== -->
-<?php
-echo $this->partial("manterpropostaincentivofiscal/inc/menu.inc.php", $this); // menu de manter proposta por incentivo fiscal
-?>
-<!-- ========== INICIO TITULO ========== -->
-<div id="titulo">
-    <div>Solicita&ccedil;&otilde;es<span class="voltar"><a href="javascript:history.go(-1)">Voltar</a></span></div>
-</div>
-<form method="POST" id="formGerarPdf" name="formGerarPdf" action="<?php echo $this->url(array('controller' => 'admissibilidade', 'action' => 'gerarpdf')); ?>" style="display:none">
-    <textarea name="html" id="conteudoImprimir"></textarea>
-</form>
-<!-- ========== FIM TITULO ========== -->
-<div id="conteudo">
+    <div class="row">
 
-    <form name="form" id="form" action="<?php echo $this->url(array('controller' => 'mantertabelaitens', 'action' => 'solicitacoes')); ?>" method="post">
+        <?php echo $this->partial("inc/menu.phtml", $this); ?>
 
-        <div class="conteudoImprimivel" id="conteudoImprimivel">
-        <table class="tabela">
-            <tr>
-                <th colspan="6" >Minhas Solicita&ccedil;&otilde;es</th>
-            </tr>
-            <tr>
-                <td><b>Produto</b></td>
-                <td><b>Etapa</b></td>
-                <td><b>Item Solicitado</b></td>
-                <td><b>Justificativa</b></td>
-                <td><b>Estado</b></td>
-                <td><b>Resposta</b></td>
-            </tr>
+        <div class="content col s10 m12 l10 planilha-produtos">
 
-            <?php
-            foreach($this->solicitacao as $tbsolicitacao): ?>
-            <tr>
-                <td><?php echo $tbsolicitacao->produto;?>
-                <input type="hidden" name="produto" value="<?php echo $tbsolicitacao->produto;?>"/>
-                </td>
-                <td><?php echo $tbsolicitacao->etapa;?></td>
-                <td><?php echo $tbsolicitacao->itemsolicitado;?></td>
-                <td><?php echo $tbsolicitacao->justificativa;?></td>
-                <td><?php echo $tbsolicitacao->estado;?></td>
-                <td><?php echo $tbsolicitacao->resposta;?></td>
-            </tr>
-            <?php endforeach;?>
-        </table>
+            <div id="titulo">
+                <div>Solicita&ccedil;&otilde;es<span class="voltar"><a
+                                href="javascript:history.go(-1)">Voltar</a></span></div>
+            </div>
+            <form method="POST" id="formGerarPdf" name="formGerarPdf"
+                  action="<?php echo $this->url(array('controller' => 'admissibilidade', 'action' => 'gerarpdf')); ?>"
+                  style="display:none">
+                <textarea name="html" id="conteudoImprimir"></textarea>
+            </form>
+
+            <div id="conteudo">
+
+                <form name="form" id="form"
+                      action="<?php echo $this->url(array('controller' => 'mantertabelaitens', 'action' => 'solicitacoes')); ?>"
+                      method="post">
+
+                    <div class="conteudoImprimivel" id="conteudoImprimivel">
+                        <table class="tabela">
+                            <tr>
+                                <th colspan="6">Minhas Solicita&ccedil;&otilde;es</th>
+                            </tr>
+                            <tr>
+                                <td><b>Produto</b></td>
+                                <td><b>Etapa</b></td>
+                                <td><b>Item Solicitado</b></td>
+                                <td><b>Justificativa</b></td>
+                                <td><b>Estado</b></td>
+                                <td><b>Resposta</b></td>
+                            </tr>
+
+                            <?php
+                            foreach ($this->solicitacao as $tbsolicitacao): ?>
+
+                                <tr>
+                                    <td><?php echo $tbsolicitacao->produto; ?>
+                                        <input type="hidden" name="produto"
+                                               value="<?php echo $tbsolicitacao->produto; ?>"/>
+                                    </td>
+                                    <td><?php echo $tbsolicitacao->etapa; ?></td>
+                                    <td><?php echo $tbsolicitacao->itemsolicitado; ?></td>
+                                    <td><?php echo $tbsolicitacao->justificativa; ?></td>
+                                    <td><?php echo $tbsolicitacao->estado; ?></td>
+                                    <td><?php echo $tbsolicitacao->Resposta; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table>
+                    </div>
+                </form>
+                <table class="tabela">
+                    <tr class="centro">
+                        <td colspan="6">
+                            <button type="button" class="waves-effect waves-light btn" onclick="window.location='<?php echo $this->url(
+                                    array(
+                                            'controller' => 'mantertabelaitens',
+                                            'action' => 'solicitaritens'
+                                    )
+                            ); ?>?idPreProjeto=<?php echo $this->idPreProjeto ?>'">Novo</button>
+
+                            <button type="button" name="imprimir" class="btn"
+                                   onclick='$("#conteudoImprimir").val($(".conteudoImprimivel").html()); $("#formGerarPdf").submit();'>
+                                Imprimir
+                            </button>
+                        </td>
+                    </tr>
+                </table>
+
+            </div>
+            <br clear="all"/>
         </div>
-   </form>
-    <table class="tabela">
-        <tr class="centro">
-            <td colspan="6" >
-                <input type="button" name="novo" class="btn_novo" value="" onclick="window.location='<?php echo $this->url(array('controller' => 'mantertabelaitens', 'action' => 'solicitaritens')); ?>?idPreProjeto=<?php if(isset($_GET['idPreProjeto']))echo $_GET['idPreProjeto'];?>'">
-                <!--<input type="button" name="imprimir" class="btn_imprimir" value="" onclick="$('#form').submit();">-->
-                <input  type="button" name="imprimir" class="btn_imprimir" onclick='$("#conteudoImprimir").val($(".conteudoImprimivel").html()); $("#formGerarPdf").submit();'>
-                <!--<input type="button" name="localizar" class="btn_localizar" value="" onclick="window.location='<?php echo $this->url(array('controller' => 'mantertabelaitens', 'action' => 'consultartabelaitens')); ?>?idPreProjeto=<?php if(isset($_GET['idPreProjeto']))echo $_GET['idPreProjeto'];?>'">-->
-            </td>
-        </tr>
-    </table>
-
+    </div>
 </div>
-<br clear="all" />

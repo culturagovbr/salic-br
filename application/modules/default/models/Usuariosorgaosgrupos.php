@@ -504,5 +504,58 @@ class Usuariosorgaosgrupos extends MinC_Db_Table_Abstract
             return $resultado->toArray();
         }
     }
+
+
+    public function obterTecnicoComMenosProjetosParaAnaliseMesAtual($where = array())
+    {
+        $subSelect = $this->select()
+            ->from(["a" => "tbAvaliacaoProposta"], [new Zend_Db_Expr('count(*)')], $this->getSchema("sac"))
+            ->where('a.idTecnico = ug.uog_usuario')
+            ->where('"a"."DtAvaliacao" >= ?', new Zend_Db_Expr('date_trunc(\'month\', CURRENT_DATE)'));
+
+        $select = $this->select();
+        $select->setIntegrityCheck(false);
+        $select->from(
+            array('ug' => $this->_name),
+            array(
+                'ug.uog_usuario',
+                'ug.uog_orgao',
+                'ug.uog_grupo',
+                'projetosParaAnalise' => new Zend_Db_Expr('('.$subSelect.')')),
+            $this->_schema
+        );
+        $select->joinInner(
+            array('g' => 'Grupos'),
+            'ug.uog_grupo = g.gru_codigo',
+            array('g.gru_nome', 'g.gru_codigo'),
+            $this->_schema
+        );
+        $select->joinInner(
+            array('s' => 'Sistemas'),
+            'g.gru_sistema = s.sis_codigo',
+            array(),
+            $this->_schema
+        );
+        $select->joinInner(
+            array('u' => 'Usuarios'),
+            'ug.uog_usuario = u.usu_codigo',
+            array('u.usu_codigo'),
+            $this->_schema
+        );
+        $select->joinInner(
+            array('o' => 'Orgaos'),
+            'ug.uog_orgao = o.org_codigo',
+            array(),
+            $this->_schema
+        );
+
+        foreach ($where as $coluna => $valor) {
+            $select->where($coluna, $valor);
+        }
+        $select->order("projetosParaAnalise DESC");
+        $select->limit(1);
+
+        return $this->fetchRow($select);
+    }
 }
 
